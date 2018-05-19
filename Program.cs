@@ -1,6 +1,7 @@
 ﻿using System;
 using Microsoft.Extensions.CommandLineUtils;
 using taide.Commands;
+using taide.Commands.Setup;
 
 namespace taide {
     class Program {

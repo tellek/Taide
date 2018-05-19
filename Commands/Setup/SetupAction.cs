@@ -4,8 +4,9 @@ using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 using taide.Helpers;
+using taide.Models;
 
-namespace taide.Commands {
+namespace taide.Commands.Setup {
     public class SetupAction {
         private string currentDirectory;
         public SetupAction() {
@@ -42,6 +43,37 @@ namespace taide.Commands {
                 "(note: aws can be picky about what special characters are allowed and where.)");
             string projectAbbreviation = Console.ReadLine().ToLower();
 
+            var globals = new Globals{
+                team = teamName,
+                region = regionValue,
+                launched_by = launchedBy,
+                s3_package_bucket = packageBucket,
+                projectName = projectName,
+                projectAbbreviation = projectAbbreviation
+            };
+
+            var collectData = new CollectData();
+
+            var globalList = collectData.MakeVarList($"{currentDirectory}\\terraform\\global.tfvars");
+            var devList = collectData.MakeVarList($"{currentDirectory}\\terraform\\dev.tfvars");
+            var qaList = collectData.MakeVarList($"{currentDirectory}\\terraform\\qa.tfvars");
+            var qtsList = collectData.MakeVarList($"{currentDirectory}\\terraform\\qts.tfvars");
+            var prodList = collectData.MakeVarList($"{currentDirectory}\\terraform\\prod.tfvars");
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             var vl = new List<string>{
                 $"team = \"{teamName}\"",
                 $"region = \"{regionValue}\"",
@@ -52,45 +84,51 @@ namespace taide.Commands {
             };
 
             
-            StringBuilder sb = new StringBuilder();
+            StringBuilder globalSb = new StringBuilder();
+            StringBuilder varsSb = new StringBuilder();
+
             Regex rgx = new Regex("(?<=\").*(?=\")");
             foreach (string line in File.ReadLines($"{currentDirectory}\\terraform\\global.tfvars")) {
                 switch (line.Split(' ')[0].Trim()) {
                     case "team":
-                        sb.AppendLine(rgx.Replace(line, teamName));
                         vl.RemoveAll(x => x.Contains("team ="));
+                        vl.Add(rgx.Replace(line, teamName));
                         break;
                     case "region":
-                        sb.AppendLine(rgx.Replace(line, regionValue));
                         vl.RemoveAll(x => x.Contains("region ="));
+                        vl.Add(rgx.Replace(line, regionValue));
                         break;
                     case "launched_by":
-                        sb.AppendLine(rgx.Replace(line, launchedBy));
                         vl.RemoveAll(x => x.Contains("launched_by ="));
+                        vl.Add(rgx.Replace(line, launchedBy));
                         break;
                     case "s3_package_bucket":
-                        sb.AppendLine(rgx.Replace(line, packageBucket));
                         vl.RemoveAll(x => x.Contains("s3_package_bucket ="));
+                        vl.Add(rgx.Replace(line, packageBucket));
                         break;
                     case "projectName":
-                        sb.AppendLine(rgx.Replace(line, projectName));
                         vl.RemoveAll(x => x.Contains("projectName ="));
+                        vl.Add(rgx.Replace(line, projectName));
                         break;
                     case "projectAbbreviation":
-                        sb.AppendLine(rgx.Replace(line, projectAbbreviation));
                         vl.RemoveAll(x => x.Contains("projectAbbreviation ="));
+                        vl.Add(rgx.Replace(line, projectAbbreviation));
                         break;
                     default:
-                        sb.AppendLine(line);
+                        if (!string.IsNullOrWhiteSpace(line)) vl.Add(line);
                         break;
                 }
             }
 
             foreach (var item in vl) {
-                sb.AppendLine(item);
+                globalSb.AppendLine(item).AppendLine();
+                string varName = "";
+                varsSb.AppendLine("variable \"" + varName + "\" {");
+                varsSb.AppendLine("  type = \"string\"");
+                varsSb.AppendLine("}").AppendLine();;
             }
             
-            File.WriteAllText($"{currentDirectory}\\terraform\\global.tfvars", sb.ToString());
+            File.WriteAllText($"{currentDirectory}\\terraform\\global.tfvars", globalSb.ToString());
         }
     }
 }
