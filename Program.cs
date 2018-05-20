@@ -1,10 +1,11 @@
 ﻿using System;
 using Microsoft.Extensions.CommandLineUtils;
 using taide.Commands;
-using taide.Commands.Setup;
+using taide.Models;
 
 namespace taide {
     class Program {
+        public static VarLists CurrentVars = new VarLists(); 
         private const string helpValues = "-?|-h|--help";
 
         static void Main (string[] args) {
