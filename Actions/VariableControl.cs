@@ -11,13 +11,10 @@ namespace taide.Actions {
     public class VariableControl {
         private NewVariable newVarInfo;
         private VarLists varLists;
-        private Regex fieldRegex;
-        private Regex valueRegex;
+        
         private FileControl fileControl;
 
         public VariableControl (string currentDirectory) {
-            fieldRegex = new Regex (".*(?= =)|.*(?==)");
-            valueRegex = new Regex ("(?<=\").*(?=\")");
             fileControl = new FileControl (currentDirectory);
         }
 
@@ -28,7 +25,7 @@ namespace taide.Actions {
 
             if (newVariableInfo.isEnvVar) {
                 bool matchFound = false;
-                ad.GlobalData = CreateVariableFileContents (varLists.GlobalList, newVarInfo.GlobalValue, out matchFound);
+                ad.GlobalData = CreateVariableFileContents (varLists.GlobalList, newVarInfo.GlobalValue, out matchFound, true);
                 if (matchFound) throw new Exception ("Variable meant for environment variables already exists in global variables.");
                 ad.DevData = CreateVariableFileContents (varLists.DevList, newVarInfo.DevValue, out matchFound);
                 ad.QaData = CreateVariableFileContents (varLists.QaList, newVarInfo.QaValue, out matchFound);
@@ -46,8 +43,6 @@ namespace taide.Actions {
                 ad.VariableNames = MergeAllListData(ad);
                 ad.VariableText = CreateVarsFileData(ad.VariableNames);
 
-                //TODO FIX TYPE WHEN INTEGER
-
                 fileControl.SaveFileWithContent (@"dev.tfvars", ad.DevText);
                 fileControl.SaveFileWithContent (@"qa.tfvars", ad.QaText);
                 fileControl.SaveFileWithContent (@"qts.tfvars", ad.QtsText);
@@ -58,13 +53,20 @@ namespace taide.Actions {
                 fileControl.SaveFileWithContent (@"prod\vars.tf", ad.VariableText);
             } else {
                 bool matchFound = false;
-                ad.DevData = CreateVariableFileContents (varLists.DevList, newVarInfo.DevValue, out matchFound);
-                ad.QaData = CreateVariableFileContents (varLists.QaList, newVarInfo.QaValue, out matchFound);
-                ad.QtsData = CreateVariableFileContents (varLists.QtsList, newVarInfo.QtsValue, out matchFound);
-                ad.ProdData = CreateVariableFileContents (varLists.ProdList, newVarInfo.ProdValue, out matchFound);
+                ad.DevData = CreateVariableFileContents (varLists.DevList, newVarInfo.DevValue, out matchFound, true);
+                ad.QaData = CreateVariableFileContents (varLists.QaList, newVarInfo.QaValue, out matchFound, true);
+                ad.QtsData = CreateVariableFileContents (varLists.QtsList, newVarInfo.QtsValue, out matchFound, true);
+                ad.ProdData = CreateVariableFileContents (varLists.ProdList, newVarInfo.ProdValue, out matchFound, true);
                 if (matchFound) throw new Exception ("Variable meant for global variables already exists in environment variables.");
                 ad.GlobalData = CreateVariableFileContents (varLists.GlobalList, newVarInfo.GlobalValue, out matchFound);
 
+                // Convert lists to strings
+                ad.GlobalText = CreateVariableText(ad.GlobalData);
+                // Generate VARS files
+                ad.VariableNames = MergeAllListData(ad);
+                ad.VariableText = CreateVarsFileData(ad.VariableNames);
+
+                if (string.IsNullOrWhiteSpace(ad.GlobalText) || string.IsNullOrWhiteSpace(ad.VariableText)) throw new Exception("Something went horribly wrong! No files saved.");
                 fileControl.SaveFileWithContent (@"global.tfvars", ad.GlobalText);
                 fileControl.SaveFileWithContent (@"dev\vars.tf", ad.VariableText);
                 fileControl.SaveFileWithContent (@"qa\vars.tf", ad.VariableText);
@@ -105,7 +107,10 @@ namespace taide.Actions {
             return sb.ToString();
         }
 
-        private List<string> CreateVariableFileContents (List<string> theList, string theValue, out bool matchFound) {
+        private List<string> CreateVariableFileContents (List<string> theList, string theValue, out bool matchFound, bool skipAdd = false) {
+            Regex fieldRegex = new Regex (".*(?= =)|.*(?==)");
+            Regex integerRegex = new Regex ("(?<=)[0-9]*");
+            Regex stringRegex = new Regex ("(?<=\").*(?=\")");
             bool isMatch = false;
             var aggregate = new List<string> ();
             foreach (var item in theList) {
@@ -114,12 +119,16 @@ namespace taide.Actions {
                 string field = fieldMatch.Success ? fieldMatch.Value.ToLower ().Trim () : "";
 
                 if (field == newVarInfo.varName) {
-                    valueRegex.Replace (line, theValue);
+                    if (!skipAdd && newVarInfo.varType == VarTypes.StringType) { stringRegex.Replace (line, theValue); }
+                    if (!skipAdd && newVarInfo.varType == VarTypes.IntegerType) { integerRegex.Replace (line, theValue); }
                     isMatch = true;
                 }
                 aggregate.Add (line);
             }
-            if (!isMatch) { aggregate.Add ($"{newVarInfo.varName} = \"{theValue}\""); }
+            if (!isMatch) { 
+                if (!skipAdd && newVarInfo.varType == VarTypes.StringType) { aggregate.Add ($"{newVarInfo.varName} = \"{theValue}\""); }
+                if (!skipAdd && newVarInfo.varType == VarTypes.IntegerType) { aggregate.Add ($"{newVarInfo.varName} = {theValue}"); }
+            }
             matchFound = isMatch;
             return aggregate;
         }

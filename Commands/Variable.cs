@@ -38,11 +38,8 @@ namespace taide.Commands {
             else { varInfo.GlobalValue = GetVariableValue("Global"); }
 
             var varLists = collectData.PopulateVarLists (currentDirectory);
-            CreateNewVariable(varInfo, varLists);
-        }
-
-        public void CreateNewVariable(NewVariable newVariableInfo, VarLists variableLists) {
-            
+            var variableControl = new VariableControl(currentDirectory);
+            variableControl.UpsertVariable(varInfo, varLists);
         }
 
         private string GetVariableName() {
